@@ -8,6 +8,10 @@ In order to effectively identify contrastive clues among highly-confused categor
 * Python 2.7
 * Pytorch 0.4.1
 * torchvision 0.2.0
+# How to use
+```
+# python train.py
+```
 # Citing
 Please kindly cite the following paper, if you find this code helpful in your work.
 ```
