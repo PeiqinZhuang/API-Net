@@ -19,5 +19,5 @@ Please kindly cite the following paper, if you find this code helpful in your wo
 }
 ```
 # Acknowledgement
-Some of the codes are borrowed from xx and xx. Many thanks to them.
+Some of the codes are borrowed from [siamese-triplet](https://github.com/adambielski/siamese-triplet) and [triplet-reid-pytorch](https://github.com/CoinCheung/triplet-reid-pytorch). Many thanks to them.
 
