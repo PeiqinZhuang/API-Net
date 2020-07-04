@@ -15,10 +15,11 @@ In order to effectively identify contrastive clues among highly-confused categor
 # Citing:
 Please kindly cite the following paper, if you find this code helpful in your work.
 ```
-@article{zhuang2020learning,
-  title={Learning Attentive Pairwise Interaction for Fine-Grained Classification},
+@inproceedings{zhuang2020learning,
+  title={Learning Attentive Pairwise Interaction for Fine-Grained Classification.},
   author={Zhuang, Peiqin and Wang, Yali and Qiao, Yu},
-  journal={arXiv preprint arXiv:2002.10191},
+  booktitle={AAAI},
+  pages={13130--13137},
   year={2020}
 }
 ```
