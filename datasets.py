@@ -14,11 +14,11 @@ def default_loader(path):
     return img
 
 class RandomDataset(Dataset):
-    def __init__(self, transform=None, dataloader=default_loader):
+    def __init__(self, val_list, transform=None, dataloader=default_loader):
         self.transform = transform
         self.dataloader = dataloader
 
-        with open('/home/pqzhuang/data/CUB/CUB_200_2011/val.txt', 'r') as fid:
+        with open(val_list, 'r') as fid:
             self.imglist = fid.readlines()
 
     def __getitem__(self, index):
@@ -36,11 +36,11 @@ class RandomDataset(Dataset):
         return len(self.imglist)
 
 class BatchDataset(Dataset):
-    def __init__(self, transform=None, dataloader=default_loader):
+    def __init__(self, train_list, transform=None, dataloader=default_loader):
         self.transform = transform
         self.dataloader = dataloader
 
-        with open('/home/pqzhuang/data/CUB/CUB_200_2011/train.txt', 'r') as fid:
+        with open(train_list, 'r') as fid:
             self.imglist = fid.readlines()
 
         self.labels = []
