@@ -78,16 +78,16 @@ def main():
                                 weight_decay=args.weight_decay)
     if args.resume:
         if os.path.isfile(args.resume):
-            print 'loading checkpoint {}'.format(args.resume)
+            print('loading checkpoint {}'.format(args.resume))
             checkpoint = torch.load(args.resume)
             args.start_epoch = checkpoint['epoch']
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
             optimizer_conv.load_state_dict(checkpoint['optimizer_conv'])
             optimizer_fc.load_state_dict(checkpoint['optimizer_fc'])
-            print 'loaded checkpoint {}(epoch {})'.format(args.resume, checkpoint['epoch'])
+            print('loaded checkpoint {}(epoch {})'.format(args.resume, checkpoint['epoch']))
         else:
-            print 'no checkpoint found at {}'.format(args.resume)
+            print('no checkpoint found at {}'.format(args.resume))
 
 
     cudnn.benchmark = True
@@ -110,11 +110,9 @@ def main():
     scheduler_fc = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_fc, 100*len(train_loader))
 
     step = 0
-    print 'START TIME:', time.asctime(time.localtime(time.time()))
+    print('START TIME:', time.asctime(time.localtime(time.time())))
     for epoch in range(args.start_epoch, args.epochs):
         step = train(train_loader, model, criterion, optimizer_conv, scheduler_conv, optimizer_fc, scheduler_fc, epoch, step)
-
-
 
 
 def train(train_loader, model, criterion, optimizer_conv,scheduler_conv, optimizer_fc, scheduler_fc, epoch, step):
