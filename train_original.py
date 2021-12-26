@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 import numpy as np
 from models import API_Net 
 from datasets import RandomDataset, BatchDataset, BalancedBatchSampler
-from utils import accuracy, AverageMeter, save_checkpoint, my_collate
+from utils import accuracy, AverageMeter, save_checkpoint
 import tensorboardX
 
 
@@ -48,15 +48,13 @@ parser.add_argument('--n_samples', default=5, type=int,
 parser.add_argument('--train_list', default='data_list/trycode.txt', type=str,
                     help='path to tensorboard')
 parser.add_argument('--val_list', default='data_list/trycode.txt', type=str,
-                    help='validation list')
+                    help='path to tensorboard')
 parser.add_argument('--tensorboard_path', default='tensorboard_logs', type=str,
                     help='path to tensorboard')
 parser.add_argument('--model_output_path', default='model_save', type=str,
                     help='path to save models')
-parser.add_argument('--model_name', default='res101', type=str)
-parser.add_argument('--dist_type', default='euclidean', type=str)
-parser.add_argument('--weight_init_zero', action='store_true')
-parser.add_argument('--color_space', default='bgr', type=str)
+parser.add_argument('--model_name', default='forgettowritename', type=str,
+                    help='name of the model when saving')
 
 
 best_prec1 = 0
@@ -71,13 +69,10 @@ def main():
     np.random.seed(2)
 
     n_classes_total = args.n_classes_total
-    model_name = args.model_name
-    weight_init_zero = args.weight_init_zero
 
     # create model
-    model = API_Net(num_classes=n_classes_total, model_name=model_name, weight_init_zero=weight_init_zero)
+    model = API_Net(num_classes=args.n_classes_total)
     model = model.to(device)
-
     model.conv = nn.DataParallel(model.conv)
 
     # define loss function (criterion) and optimizer
@@ -120,12 +115,8 @@ def main():
                                             
     train_sampler = BalancedBatchSampler(train_dataset, args.n_classes, args.n_samples)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_sampler=train_sampler,
-        num_workers=args.workers,
-        pin_memory=True,
-        collate_fn=my_collate
-    )
+        train_dataset, batch_sampler=train_sampler,
+        num_workers=args.workers, pin_memory=True)
     scheduler_conv = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_conv, 100*len(train_loader))
     scheduler_fc = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_fc, 100*len(train_loader))
 
@@ -144,37 +135,18 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     step = 0
-
-    model_output_path = args.model_output_path
-
     tensorboard_path = args.tensorboard_path
-    train_writer = tensorboardX.SummaryWriter(tensorboard_path)
+    model_output_path = args.model_output_path
+    model_name = args.model_name
 
     print('START TIME:', time.asctime(time.localtime(time.time())))
     for epoch in range(args.start_epoch, args.epochs):
         train(train_loader, model, criterion, optimizer_conv, scheduler_conv, optimizer_fc, scheduler_fc, epoch, step,
-              n_classes_total, train_writer)
-        prec1_val, loss_val = validate(val_loader, model, criterion)
-
-        train_writer.add_scalar('val_loss', loss_val, epoch)
-        train_writer.add_scalar('val_top1', prec1_val, epoch)
-
-        # remember best prec@1 and save checkpoint
-        if not os.path.exists(model_output_path):
-            os.makedirs(model_output_path)
-        is_best = prec1_val > best_prec1
-        best_prec1 = max(prec1_val, best_prec1)
-        save_checkpoint(save_path=model_output_path, state={
-            'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
-            'best_prec1': best_prec1,
-            'optimizer_conv': optimizer_conv.state_dict(),
-            'optimizer_fc': optimizer_fc.state_dict(),
-        }, is_best=is_best, saved_file=os.path.join(model_output_path, str(epoch) + '_' + model_name))
+              tensorboard_path, model_output_path, model_name, val_loader, n_classes_total)
 
 
 def train(train_loader, model, criterion, optimizer_conv, scheduler_conv, optimizer_fc, scheduler_fc, epoch, step,
-          n_classes_total, train_writer):
+          tensorboard_path, model_output_path, model_name, val_loader, n_classes_total):
     global best_prec1
 
     batch_time = AverageMeter()
@@ -184,7 +156,7 @@ def train(train_loader, model, criterion, optimizer_conv, scheduler_conv, optimi
     losses = AverageMeter()
     top1 = AverageMeter()
     # top5 = AverageMeter()
-
+    train_writer = tensorboardX.SummaryWriter(tensorboard_path)
 
     # switch to train mode
     end = time.time()
@@ -198,8 +170,6 @@ def train(train_loader, model, criterion, optimizer_conv, scheduler_conv, optimi
         data_time.update(time.time() - end)
         input_var = input.to(device)
         target_var = target.to(device).squeeze()
-        # print(f'input size {input_var.shape}')
-        # print(f'target size {target_var.shape}')
 
 
         # compute output
@@ -246,8 +216,8 @@ def train(train_loader, model, criterion, optimizer_conv, scheduler_conv, optimi
         optimizer_fc.zero_grad()
         loss.backward()
 
-        if epoch >= 8:
-            optimizer_conv.step()
+        # if epoch >= 8:
+        optimizer_conv.step()
         scheduler_conv.step()
         optimizer_fc.step()
         scheduler_fc.step()
@@ -275,7 +245,30 @@ def train(train_loader, model, criterion, optimizer_conv, scheduler_conv, optimi
         train_writer.add_scalar('learning_rate_conv', optimizer_conv.param_groups[0]['lr'], epoch)
         train_writer.add_scalar('learning_rate_fc', optimizer_fc.param_groups[0]['lr'], epoch)
 
-    return top1.avg, softmax_losses.avg
+        if i == len(train_loader) - 1:
+            print(f'before validate {torch.cuda.memory_allocated()}')
+            prec1_val, loss_val = validate(val_loader, model, criterion)
+            print(f'after validate {torch.cuda.memory_allocated()}')
+
+            # remember best prec@1 and save checkpoint
+            if not os.path.exists(model_output_path):
+                os.makedirs(model_output_path)
+            is_best = prec1 > best_prec1
+            best_prec1 = max(prec1, best_prec1)
+            save_checkpoint(save_path=model_output_path, state={
+                'epoch': epoch + 1,
+                'state_dict': model.state_dict(),
+                'best_prec1': best_prec1,
+                'optimizer_conv': optimizer_conv.state_dict(),
+                'optimizer_fc': optimizer_fc.state_dict(),
+            }, is_best=is_best, saved_file=os.path.join(model_output_path, str(epoch) + '_' + model_name))
+
+            train_writer.add_scalar('val_loss', loss_val, epoch)
+            train_writer.add_scalar('val_top1', prec1_val, epoch)
+
+        step = step + 1
+
+    return step
 
 
 def validate(val_loader, model, criterion):
